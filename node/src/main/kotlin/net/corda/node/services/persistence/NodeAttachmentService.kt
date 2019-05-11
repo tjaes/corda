@@ -335,7 +335,7 @@ class NodeAttachmentService(
         currentDBSession().find(NodeAttachmentService.DBAttachment::class.java, attachmentId.toString()) != null
     }
 
-    private fun verifyVersionUniquenessForSignedAttachments(contractClassNames: List<ContractClassName>, contractVersion: Int, signers: List<PublicKey>?) {
+    private fun verifyVersionUniquenessForSignedAttachments(contractClassNames: List<ContractClassName>, contractVersion: Int, signers: List<PublicKey>?, newContractImplId: SecureHash? = null) {
         if (signers != null && signers.isNotEmpty()) {
             contractClassNames.forEach {
                 val existingContractsImplementations = queryAttachments(AttachmentQueryCriteria.AttachmentsQueryCriteria(
@@ -344,7 +344,7 @@ class NodeAttachmentService(
                         uploaderCondition = Builder.`in`(TRUSTED_UPLOADERS),
                         isSignedCondition = Builder.equal(true))
                 )
-                if (existingContractsImplementations.isNotEmpty()) {
+                if (existingContractsImplementations.minus(newContractImplId).isNotEmpty()) {
                     throw DuplicateContractClassException(it, contractVersion, existingContractsImplementations.map { it.toString() })
                 }
             }
@@ -408,7 +408,7 @@ class NodeAttachmentService(
                     // update the `uploader` field (as the existing attachment may have been resolved from a peer)
                     if (attachment.uploader != uploader) {
                         if (!devMode)
-                            verifyVersionUniquenessForSignedAttachments(contractClassNames, attachment.version, attachment.signers)
+                            verifyVersionUniquenessForSignedAttachments(contractClassNames, attachment.version, attachment.signers, id)
                         attachment.uploader = uploader
                         log.info("Updated attachment $id with uploader $uploader")
                         contractClassNames.forEach { contractsCache.invalidate(it) }
